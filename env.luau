@@ -1,3 +1,4 @@
+
 local loadfile = function(path, chunkname)
     local success, content = pcall(readfile, path)
     if not success or not content then
@@ -119,10 +120,10 @@ local function validateUrl(url)
     local host = string.match(hostAndPath, '^([^/:]+)')
     if not host or #host == 0 then
         return false, "Invalid host in URL"
-        end
+    end
 
-        return true
-        end
+    return true
+end
 
 function WebSocket.connect(url)
     local valid, err = validateUrl(url)
@@ -449,4 +450,4 @@ getgenv().task = setmetatable({}, {
     end
 })
 
-print("[loop][success][] enviroment")
+print("[loop][success] - loaded")
