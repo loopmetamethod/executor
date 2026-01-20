@@ -178,6 +178,7 @@ Drawing.new = function(drawingType)
             
             if properties.Filled then
                 drawingObj.BackgroundTransparency = 1 - properties.Transparency
+                drawingObj.BackgroundColor3 = properties.Color
                 stroke.Enabled = false
             else
                 drawingObj.BackgroundTransparency = 1
@@ -469,7 +470,7 @@ Drawing.new = function(drawingType)
                 drawingObj.TextStrokeTransparency = 1
             end
             
-            task.wait()
+            game:GetService("RunService").RenderStepped:Wait()
             properties.TextBounds = drawingObj.TextBounds
         end
         
@@ -477,7 +478,7 @@ Drawing.new = function(drawingType)
         mt.__newindex = function(t, k, v)
             oldNewindex(t, k, v)
             if k ~= "TextBounds" then
-                updateText()
+                task.spawn(updateText)
             end
         end
         
