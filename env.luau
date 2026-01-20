@@ -449,4 +449,4 @@ getgenv().task = setmetatable({}, {
     end
 })
 
-print("[" .. getexecutorname() .. "][success] - loaded")
+print("[" .. getexecutorname():lower() .. "][success] - loaded")
