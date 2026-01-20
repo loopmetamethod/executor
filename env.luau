@@ -1,4 +1,3 @@
-
 local loadfile = function(path, chunkname)
     local success, content = pcall(readfile, path)
     if not success or not content then
@@ -450,4 +449,4 @@ getgenv().task = setmetatable({}, {
     end
 })
 
-print("[loop][success] - loaded")
+print("[" .. getexecutorname() .. "][success] - loaded")
