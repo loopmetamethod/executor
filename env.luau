@@ -12,12 +12,6 @@ getgenv().http = http
 getgenv().syn = getgenv().syn or {}
 getgenv().syn.request = http.request
 
-local cache = cache or {}
-getgenv().cache = cache
-
-local crypt = crypt or {}
-getgenv().crypt = crypt
-
 local Signal = {}
 Signal.__index = Signal
 
