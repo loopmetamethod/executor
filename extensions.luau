@@ -19,7 +19,10 @@ do
             if mt then
                 set_readonly_safe(mt, false)
                 pcall(function()
-                    mt.__index[name] = func
+                    local idx = mt.__index
+                    if type(idx) == "table" then
+                        idx[name] = func
+                    end
                 end)
                 set_readonly_safe(mt, true)
             end
@@ -34,7 +37,7 @@ do
         add_to_library(string, "split", function(str, sep)
             sep = sep or ","
             local result = {}
-            local pattern = '([^" .. sep .. "]+)'
+            local pattern = "([^" .. sep:gsub("([%.%-%+%*%?%[%]%^%$%(%)%%])", "%%%1") .. "]+)"
             for match in str:gmatch(pattern) do
                 table.insert(result, match)
             end
@@ -104,12 +107,12 @@ do
                 ["\""] = "\\\"",
                 ["'"] = "\\'",
             }
-            local result = ""
+            local out = {}
             for i = 1, #str do
                 local c = str:sub(i, i)
-                result = result .. (escapes[c] or c)
+                out[i] = escapes[c] or c
             end
-            return result
+            return table.concat(out)
         end)
         
         add_to_library(string, "unescape", function(str)
@@ -121,19 +124,19 @@ do
                 ["\""] = "\"",
                 ["'"] = "'",
             }
-            local result = ""
+            local out = {}
             local i = 1
             while i <= #str do
                 if str:sub(i, i) == "\\" and i < #str then
                     local next_char = str:sub(i + 1, i + 1)
-                    result = result .. (unescapes[next_char] or next_char)
+                    table.insert(out, unescapes[next_char] or next_char)
                     i = i + 2
                 else
-                    result = result .. str:sub(i, i)
+                    table.insert(out, str:sub(i, i))
                     i = i + 1
                 end
             end
-            return result
+            return table.concat(out)
         end)
     end
     
@@ -167,16 +170,32 @@ do
         end)
         
         add_to_library(table, "reduce", function(tbl, reducer, initial)
+            local i = 1
             local accumulator = initial
-            for i, v in ipairs(tbl) do
-                accumulator = reducer(accumulator, v, i)
+            
+            if accumulator == nil then
+                if #tbl == 0 then return nil end
+                accumulator = tbl[1]
+                i = 2
+            end
+            
+            for idx = i, #tbl do
+                accumulator = reducer(accumulator, tbl[idx], idx)
             end
             return accumulator
         end)
         
         add_to_library(table, "slice", function(tbl, start_idx, end_idx)
+            local n = #tbl
             start_idx = start_idx or 1
-            end_idx = end_idx or #tbl
+            end_idx = end_idx or n
+            
+            if start_idx < 0 then start_idx = n + start_idx + 1 end
+            if end_idx < 0 then end_idx = n + end_idx + 1 end
+            
+            if start_idx < 1 then start_idx = 1 end
+            if end_idx > n then end_idx = n end
+            
             local result = {}
             for i = start_idx, end_idx do
                 table.insert(result, tbl[i])
@@ -242,6 +261,49 @@ do
             end
             return tbl
         end)
+        
+        add_to_library(table, "copy", function(tbl)
+            local result = {}
+            for k, v in pairs(tbl) do
+                result[k] = v
+            end
+            return result
+        end)
+        
+        add_to_library(table, "deepcopy", function(tbl, seen)
+            if type(tbl) ~= "table" then return tbl end
+            
+            seen = seen or {}
+            if seen[tbl] then return seen[tbl] end
+            
+            local result = {}
+            seen[tbl] = result
+            
+            for k, v in pairs(tbl) do
+                result[table.deepcopy(k, seen)] = table.deepcopy(v, seen)
+            end
+            
+            return setmetatable(result, getmetatable(tbl))
+        end)
+        
+        add_to_library(table, "equal", function(t1, t2)
+            if t1 == t2 then return true end
+            if type(t1) ~= "table" or type(t2) ~= "table" then return false end
+            
+            for k, v in pairs(t1) do
+                if type(v) == "table" then
+                    if not table.equal(v, t2[k]) then return false end
+                else
+                    if v ~= t2[k] then return false end
+                end
+            end
+            
+            for k in pairs(t2) do
+                if t1[k] == nil then return false end
+            end
+            
+            return true
+        end)
     end
     
     if math then
@@ -256,7 +318,11 @@ do
         add_to_library(math, "round", function(value, decimals)
             decimals = decimals or 0
             local mult = 10 ^ decimals
-            return math.floor(value * mult + 0.5) / mult
+            if value >= 0 then
+                return math.floor(value * mult + 0.5) / mult
+            else
+                return math.ceil(value * mult - 0.5) / mult
+            end
         end)
         
         add_to_library(math, "sign", function(value)
@@ -276,10 +342,41 @@ do
         add_to_library(math, "isinf", function(value)
             return value == math.huge or value == -math.huge
         end)
+        
+        add_to_library(math, "average", function(...)
+            local args = {...}
+            if #args == 0 then return 0 end
+            local sum = 0
+            for i = 1, #args do
+                sum = sum + args[i]
+            end
+            return sum / #args
+        end)
+        
+        add_to_library(math, "median", function(...)
+            local args = {...}
+            if #args == 0 then return 0 end
+            table.sort(args)
+            local mid = math.floor(#args / 2) + 1
+            if #args % 2 == 0 then
+                return (args[mid - 1] + args[mid]) / 2
+            else
+                return args[mid]
+            end
+        end)
     end
     
     if not _G.vector then
         _G.vector = {}
+    end
+    
+    local function get_xyz(v)
+        if type(v) ~= "table" then
+            return 0, 0, 0
+        end
+        return v.x or v[1] or 0,
+               v.y or v[2] or 0,
+               v.z or v[3] or 0
     end
     
     _G.vector.create = function(x, y, z)
@@ -287,79 +384,104 @@ do
     end
     
     _G.vector.magnitude = function(v)
-        if type(v) == "table" then
-            return math.sqrt((v.x or v[1] or 0)^2 + (v.y or v[2] or 0)^2 + (v.z or v[3] or 0)^2)
-        end
-        return 0
+        local x, y, z = get_xyz(v)
+        return math.sqrt(x * x + y * y + z * z)
     end
     
     _G.vector.normalize = function(v)
-        if type(v) == "table" then
-            local mag = _G.vector.magnitude(v)
-            if mag > 0 then
-                local x, y, z = v.x or v[1] or 0, v.y or v[2] or 0, v.z or v[3] or 0
-                return {x = x / mag, y = y / mag, z = z / mag}
-            end
+        local x, y, z = get_xyz(v)
+        local mag = math.sqrt(x * x + y * y + z * z)
+        if mag > 0 then
+            return {x = x / mag, y = y / mag, z = z / mag}
         end
         return {x = 0, y = 0, z = 0}
     end
     
     _G.vector.dot = function(v1, v2)
-        if type(v1) == "table" and type(v2) == "table" then
-            local x1, y1, z1 = v1.x or v1[1] or 0, v1.y or v1[2] or 0, v1.z or v1[3] or 0
-            local x2, y2, z2 = v2.x or v2[1] or 0, v2.y or v2[2] or 0, v2.z or v2[3] or 0
-            return x1 * x2 + y1 * y2 + z1 * z2
-        end
-        return 0
+        local x1, y1, z1 = get_xyz(v1)
+        local x2, y2, z2 = get_xyz(v2)
+        return x1 * x2 + y1 * y2 + z1 * z2
     end
     
     _G.vector.cross = function(v1, v2)
-        if type(v1) == "table" and type(v2) == "table" then
-            local x1, y1, z1 = v1.x or v1[1] or 0, v1.y or v1[2] or 0, v1.z or v1[3] or 0
-            local x2, y2, z2 = v2.x or v2[1] or 0, v2.y or v2[2] or 0, v2.z or v2[3] or 0
-            return {
-                x = y1 * z2 - z1 * y2,
-                y = z1 * x2 - x1 * z2,
-                z = x1 * y2 - y1 * x2
-            }
-        end
-        return {x = 0, y = 0, z = 0}
+        local x1, y1, z1 = get_xyz(v1)
+        local x2, y2, z2 = get_xyz(v2)
+        return {
+            x = y1 * z2 - z1 * y2,
+            y = z1 * x2 - x1 * z2,
+            z = x1 * y2 - y1 * x2
+        }
     end
     
     _G.vector.lerp = function(v1, v2, t)
-        if type(v1) == "table" and type(v2) == "table" then
-            local x1, y1, z1 = v1.x or v1[1] or 0, v1.y or v1[2] or 0, v1.z or v1[3] or 0
-            local x2, y2, z2 = v2.x or v2[1] or 0, v2.y or v2[2] or 0, v2.z or v2[3] or 0
-            return {
-                x = x1 + (x2 - x1) * t,
-                y = y1 + (y2 - y1) * t,
-                z = z1 + (z2 - z1) * t
-            }
-        end
-        return {x = 0, y = 0, z = 0}
+        local x1, y1, z1 = get_xyz(v1)
+        local x2, y2, z2 = get_xyz(v2)
+        return {
+            x = x1 + (x2 - x1) * t,
+            y = y1 + (y2 - y1) * t,
+            z = z1 + (z2 - z1) * t
+        }
     end
     
     _G.vector.angle = function(v1, v2)
-        if type(v1) == "table" and type(v2) == "table" then
-            local dot = _G.vector.dot(v1, v2)
-            local mag1 = _G.vector.magnitude(v1)
-            local mag2 = _G.vector.magnitude(v2)
-            if mag1 > 0 and mag2 > 0 then
-                return math.acos(dot / (mag1 * mag2))
-            end
+        local dot = _G.vector.dot(v1, v2)
+        local mag1 = _G.vector.magnitude(v1)
+        local mag2 = _G.vector.magnitude(v2)
+        if mag1 > 0 and mag2 > 0 then
+            return math.acos(math.clamp(dot / (mag1 * mag2), -1, 1))
         end
         return 0
     end
     
+    _G.vector.distance = function(v1, v2)
+        local x1, y1, z1 = get_xyz(v1)
+        local x2, y2, z2 = get_xyz(v2)
+        local dx, dy, dz = x2 - x1, y2 - y1, z2 - z1
+        return math.sqrt(dx * dx + dy * dy + dz * dz)
+    end
+    
+    _G.vector.add = function(v1, v2)
+        local x1, y1, z1 = get_xyz(v1)
+        local x2, y2, z2 = get_xyz(v2)
+        return {x = x1 + x2, y = y1 + y2, z = z1 + z2}
+    end
+    
+    _G.vector.subtract = function(v1, v2)
+        local x1, y1, z1 = get_xyz(v1)
+        local x2, y2, z2 = get_xyz(v2)
+        return {x = x1 - x2, y = y1 - y2, z = z1 - z2}
+    end
+    
+    _G.vector.multiply = function(v, scalar)
+        local x, y, z = get_xyz(v)
+        return {x = x * scalar, y = y * scalar, z = z * scalar}
+    end
+    
+    _G.vector.divide = function(v, scalar)
+        if scalar == 0 then return {x = 0, y = 0, z = 0} end
+        local x, y, z = get_xyz(v)
+        return {x = x / scalar, y = y / scalar, z = z / scalar}
+    end
+    
     if bit32 then
+        local MASK = 0xFFFFFFFF
+        
         add_to_library(bit32, "rotl", function(x, disp)
             disp = disp % 32
-            return bit32.bor(bit32.lshift(x, disp), bit32.rshift(x, 32 - disp))
+            x = bit32.band(x, MASK)
+            return bit32.bor(
+                bit32.band(bit32.lshift(x, disp), MASK),
+                bit32.rshift(x, 32 - disp)
+            )
         end)
         
         add_to_library(bit32, "rotr", function(x, disp)
             disp = disp % 32
-            return bit32.bor(bit32.rshift(x, disp), bit32.lshift(x, 32 - disp))
+            x = bit32.band(x, MASK)
+            return bit32.bor(
+                bit32.rshift(x, disp),
+                bit32.band(bit32.lshift(x, 32 - disp), MASK)
+            )
         end)
         
         add_to_library(bit32, "countbits", function(x)
