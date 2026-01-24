@@ -94,6 +94,74 @@ function Signal:Wait()
     return coroutine.yield()
 end
 
+getgenv().getconnections = getconnections or function(signal)
+    local connections = {}
+    
+    if typeof(signal) == "RBXScriptSignal" then
+        local temp = signal:Connect(function() end)
+        
+        connections[1] = {
+            Enabled = true,
+            ForeignState = false,
+            LuaConnection = true,
+            Function = function() end,
+            Thread = coroutine.running(),
+            Fire = function(self, ...)
+                if self.Enabled then
+                    task.spawn(self.Function, ...)
+                end
+            end,
+            Defer = function(self, ...)
+                if self.Enabled then
+                    task.defer(self.Function, ...)
+                end
+            end,
+            Disconnect = function(self)
+                self.Enabled = false
+                temp:Disconnect()
+            end,
+            Disable = function(self)
+                self.Enabled = false
+            end,
+            Enable = function(self)
+                self.Enabled = true
+            end
+        }
+    end
+    
+    return connections
+end
+
+getgenv().getscripts = getscripts or function()
+    local scripts = {}
+    for _, obj in pairs(game:GetDescendants()) do
+        if obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
+            table.insert(scripts, obj)
+        end
+    end
+    return scripts
+end
+
+getgenv().getloadedmodules = getloadedmodules or function()
+    local modules = {}
+    for _, obj in pairs(game:GetDescendants()) do
+        if obj:IsA("ModuleScript") then
+            table.insert(modules, obj)
+        end
+    end
+    return modules
+end
+
+getgenv().getrunningscripts = getrunningscripts or function()
+    local scripts = {}
+    for _, obj in pairs(game:GetDescendants()) do
+        if obj:IsA("LocalScript") and obj.Enabled then
+            table.insert(scripts, obj)
+        end
+    end
+    return scripts
+end
+
 local bit32 = bit32 or bit or {}
 
 if not bit32.band then
