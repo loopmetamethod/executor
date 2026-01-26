@@ -1,3 +1,44 @@
+local loadfile = function(path, chunkname)
+    local success, content = pcall(readfile, path)
+    if not success or not content then
+        return nil, "cannot open " .. tostring(path) .. ": No such file or directory"
+    end
+    
+    local chunk_name = chunkname or ("@" .. path)
+    return loadstring(content, chunk_name)
+end
+
+local dofile = function(path)
+    local func, err = loadfile(path)
+    if not func then
+        error(err, 2)
+    end
+    return func()
+end
+
+getgenv().loadfile = loadfile
+getgenv().load_file = loadfile
+getgenv().loadfromfile = loadfile
+getgenv().load_from_file = loadfile
+
+getgenv().dofile = dofile
+getgenv().do_file = dofile
+
+if not getgenv().file then
+    getgenv().file = {}
+end
+
+getgenv().file.load = loadfile
+getgenv().file.loadfile = loadfile
+getgenv().file.load_file = loadfile
+getgenv().file["do"] = dofile
+getgenv().file.dofile = dofile
+getgenv().file.do_file = dofile
+
+if not getgenv().folder then
+    getgenv().folder = {}
+end
+
 if not getgenv().folder then
     getgenv().folder = {}
 end
