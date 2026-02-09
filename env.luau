@@ -205,21 +205,6 @@ end
 getgenv().bit32 = bit32
 getgenv().bit = bit32
 
-local function decompile(LuaScriptContainer)
-    assert(tfind({"ModuleScript", "LocalScript"}, LuaScriptContainer.ClassName), "Invalid argument #1 to 'decompile', LuaSourceContainer expected, got " .. LuaScriptContainer.ClassName)
-
-    return request({
-        Url = "http://api.plusgiant5.com/konstant/decompile",
-        Method = "POST",
-        Headers = {
-            ["Content-Type"] = "text/plain"
-        },
-        Body = getscriptbytecode(LuaScriptContainer)
-    }).Body
-end
-
-getgenv().decompile = decompile
-
 local debug_backup = {}
 for k, v in pairs(debug) do
     debug_backup[k] = v
