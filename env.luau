@@ -204,31 +204,3 @@ end
 
 getgenv().bit32 = bit32
 getgenv().bit = bit32
-
-local debug_backup = {}
-for k, v in pairs(debug) do
-    debug_backup[k] = v
-end
-
-getgenv().debug = setmetatable({}, {
-    __index = function(_, key)
-        return debug_backup[key]
-    end,
-    __newindex = function(_, key, value)
-        debug_backup[key] = value
-    end
-})
-
-local task_backup = {}
-for k, v in pairs(task) do
-    task_backup[k] = v
-end
-
-getgenv().task = setmetatable({}, {
-    __index = function(_, key)
-        return task_backup[key]
-    end,
-    __newindex = function(_, key, value)
-        task_backup[key] = value
-    end
-})
